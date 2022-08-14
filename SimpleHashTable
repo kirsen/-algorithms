@@ -1,0 +1,208 @@
+- ПРИНЦИП РАБОТЫ --
+Контейнером или структурой данных для алгоритма служит list<pair<int, int>> *_table условно говоря наша
+хэш-таблица представлет ее класс HashTable, api предоставляет класс HashTableWorker, причиной
+такого разделения по сущностям удобно для будущего развития алгоритма, например если понадобиться 
+рехеширование ( в данном задании написано, что не нужно реализовывать рехеширование). Для разрешения
+коллизиц используется метод цепочек
+
+*_table по сути является массивом индексами которого являются хэши, а значения списки-цепочки
+из ключ-значение. 
+
+
+-- ДОКАЗАТЕЛЬСТВО КОРРЕКТНОСТИ --
+Выбор структуры данных для значений обсуловлен тем что для списка сложность добавления
+в начало o(1)  и сложность удаления  в лучшем случае o(1). А выбор структуры данных
+в  виде динамического массива обсуловена с удобством доступа к элементам по индексу, можно 
+было использовать структуру array c учетом того, что у нас статический размер, но для возможного
+рехеширования удобнее, как мне показалось, использовать динамический массив
+
+
+-- ВРЕМЕННАЯ СЛОЖНОСТЬ --
+Временная сложность зависит от размера входного массива и от сложности операций доступа
+к элементам по индексу в массиве и операций над значениями (то есть списком )
+
+n- количество корзин в таблице
+k = m[i].size() - длина цепочки 
+Сложность оперции удаления  в лучшем случае o(1) в худшем  o(k)
+Сложность оперции добавления  в лучшем случае o(1)
+Сложность операции поиска в списке o(k)
+
+
+Если предположить, что хэш-функция равномерная, то вероятность попадания в ячейку равно 1/n
+при этом если мы попадаем в ячейку i  c количество элементов k, то для просмотра всей
+цепочки понадобится 1 + k[i]  опрераций, и если разложить все это на суммы
+
+T(n) = (1/n) * Cумма_от_0_до_n-1( 1 + k[i]) 
+= (1/n) * Cумма_от_0_до_n-1( 1) + (1/n) * Cумма_от_0_до_n-1( k[i]) = (1/n)*n + (1/n)* k = 1 + k/n
+T(n) = o (1 + (k/n))
+
+-- ПРОСТРАНСТВЕННАЯ СЛОЖНОСТЬ --
+Для данной задачи не создавался массив из размера  n = 10^5 - размер общего массива
+для каждого хэша выделялся размер под цепочки k, то есть в данном случае опять же все зависит от
+коэффициента заполненности k/n,  то есть (1/n) * Cумма_размеров_от_0_до_n-1(  k[i].size()) по сути
+та же формула что и для временной  сложности, только тут мы понимаем под слагаемыми размеры элементов
+*/
+
+#include <iostream>
+#include <string>
+#include <algorithm>
+#include <list>
+
+using namespace std;
+
+
+struct HashTable
+{
+	HashTable(int capacity)
+	{
+		_size = 0;
+		_capacity = capacity;
+		_table = new list<pair<int, int>>[_capacity];
+	}
+
+	~HashTable()
+	{
+		if (_table)
+			delete[]_table;
+	}
+
+	int  getHashIndex(int key)
+	{
+		return key % _capacity;
+	}
+
+	int _capacity;
+	int _size;
+	list<pair<int, int>> *_table;
+};
+
+
+class HashTableWorker
+{
+public:
+	HashTableWorker()
+	{
+		_hashTable = new HashTable(100000);
+	}
+
+	~HashTableWorker()
+	{
+		if (_hashTable)
+			delete _hashTable;
+	}
+
+
+	void put(int key, int data)
+	{
+
+		int index = _hashTable->getHashIndex(key);
+
+		list<pair<int, int>>::iterator it = std::find_if(_hashTable->_table[index].begin(), _hashTable->_table[index].end(),
+			[key](const pair<int, int> & element) -> bool { return element.first == key; });
+
+		if (it != _hashTable->_table[index].end())
+			it->second = data;
+		else
+		{
+			pair<int, int> elm;
+			elm.first = key;
+			elm.second = data;
+
+			_hashTable->_table[index].push_front(elm);
+			++_hashTable->_size;
+		}
+
+	}
+
+
+	int get(int key)
+	{
+		int res;
+
+		if (_hashTable->_size == 0)
+			throw std::out_of_range("None");
+
+
+		int index = _hashTable->getHashIndex(key);
+
+		list<pair<int, int>>::iterator it = std::find_if(_hashTable->_table[index].begin(), _hashTable->_table[index].end(),
+			[key](const pair<int, int> & element) -> bool { return element.first == key; });
+
+		if (it == _hashTable->_table[index].end())
+			throw std::out_of_range("None");
+
+
+		res = it->second;
+		return res;
+	}
+
+	int deleteElement(int key)
+	{
+		int res;
+
+		if (_hashTable->_size == 0)
+			throw std::out_of_range("None");
+
+		int index = _hashTable->getHashIndex(key);
+
+		list<pair<int, int>>::iterator it = std::find_if(_hashTable->_table[index].begin(), _hashTable->_table[index].end(),
+			[key](const pair<int, int> & element) -> bool { return element.first == key; });
+
+		if (it == _hashTable->_table[index].end())
+			throw std::out_of_range("None");
+
+
+		res = it->second;
+		_hashTable->_table[index].erase(it);
+		++_hashTable->_size;
+
+		return res;
+	}
+
+private:
+	HashTable *_hashTable;
+};
+
+int main()
+{
+	size_t count_command = 0;
+	cin >> count_command;
+
+
+	HashTableWorker hashTableWorker;
+
+	string command_name;
+
+	int key;
+	int data_value;
+
+	for (int i = 0; i < count_command; ++i)
+	{
+		try {
+			cin >> command_name;
+
+			if (command_name == "get")
+			{
+				cin >> key;
+				cout << hashTableWorker.get(key) << endl;
+			}
+			else if (command_name == "delete")
+			{
+				cin >> key;
+				cout << hashTableWorker.deleteElement(key) << endl;
+			}
+			else if (command_name == "put")
+			{
+				cin >> key;
+				cin >> data_value;
+				hashTableWorker.put(key, data_value);
+			}
+
+		}
+		catch (exception& e)
+		{
+			cout << e.what() << '\n';
+		}
+
+	}
+}
