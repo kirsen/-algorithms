@@ -1,0 +1,209 @@
+--ПРИНЦИП РАБОТЫ--
+1 Выделение памяти для пустой бинарной кучи  BinaryHeap<Player> binaryHeap(players.size()),
+для этого создается объект binaryHeap, с котором дальнейшем будут связаны все действия
+2 Вставим через binaryHeap по одному все элементы массива, сохраняя свойства кучи.
+так как нам нужна сортировка от меньшего к большему, на вершине пирамиды должен
+оказаться самый маленький элемент, при помощи методов heap_add и sift_up
+3 Извлекать через binaryHeap наиболее приоритетные элементы(с самым маленьким значением), удаляя их из кучи,
+, при помощи методов pop_max и shift_down
+4 C учетом того, что мы веделили память на 1 единицу больше	_players.resize(capacity + 1) и
+идексацию при вставке и удалении начинаем с 1, и физически не удаляем элементы, а лишь затираем,
+последний и предпоследний элементы будут не на своих местах в конечном счете и после шага 3 мы их меняем местами
+-- ДОКАЗАТЕЛЬСТВО КОРРЕКТНОСТИ --
+Для корретной реализации алгоритма было построено дерево на массиве,
+потому что это наиболее удобный способ создания бинарной кучи или пирамиды.
+Благодаря такой структуре хранения дерева, по номеру дочернего узла можно определить
+номер его родителя, а по номеру родителя — индексы его потомков, если они существуют,
+это дает возможность при вставке или удалении быстро вычислить родителей или потомков,
+что позволяет эффективно поддерживать свойства бинарной кучи, а именно упорядоченность
+кучи
+-- ВРЕМЕННАЯ СЛОЖНОСТЬ --
+Согласно шагам алгоритма
+1 Создание бинарной кучи.Сложность этой операции — O(1)
+2 Вставка элементов в бинарную кучу n - элементов
+O(log1) + O(log2) + .. + O(logn) ~O(logn) + O(logn) + .. + O(logn)~O(nlogn)
+3 - 4 Извчлечение элементов аналогично вставке ~O(nlogn)
+T = O(1) + O(nlogn) + O(nlogn) ~O(nlogn)
+--ПРОСТРАНСТВЕННАЯ СЛОЖНОСТЬ --
+Для данной задачи не создавались дополнительных контейнеров, не было рекурсии, только в начале был
+выделен сразу блок массива, с которым всегда работали, поэтому пространственная сложность O(n)**/
+
+
+
+#include <string>
+#include <vector>
+#include <iostream>
+#include <algorithm>
+
+using namespace std;
+
+struct  Player
+{
+	string _name;
+	int _completed_task;
+	int _fine;
+};
+
+std::istream& operator>> (std::istream& in, Player& p)
+{
+	in >> p._name >> p._completed_task >> p._fine;
+	return in;
+}
+
+
+bool operator< (const Player & lhs, const Player & rhs) {
+
+	if (lhs._completed_task < rhs._completed_task)
+		return true;
+
+	if (rhs._completed_task == lhs._completed_task)
+	{
+		if (lhs._fine == rhs._fine)
+		{
+			if (lexicographical_compare(rhs._name.begin(), rhs._name.end(), lhs._name.begin(), lhs._name.end())) // gosha < rita
+				return true;
+		}
+
+		if (lhs._fine > rhs._fine)
+			return true;
+
+	}
+	return false;
+}
+
+
+bool operator== (const Player & lhs, const Player & rhs) {
+
+	if (lhs._completed_task != rhs._completed_task)
+		return false;
+
+	if (lhs._fine != rhs._fine)
+		return false;
+
+	if (lhs._name != rhs._name)
+		return false;
+
+	return true;
+
+}
+template <typename T>
+class BinaryHeap
+{
+public:
+	BinaryHeap(size_t capacity)
+	{
+		_size = 0;
+		_players.resize(capacity + 1);
+	}
+
+	size_t getSize() const
+	{
+		return _size;
+	}
+
+	void heap_add(const T &player)
+	{
+		++_size;
+		int index = _size;
+		_players[index] = player;
+		sift_up(index);
+	}
+
+	void sift_up(int index)
+	{
+		if (index == 1)
+			return;
+
+		int parent_index = index / 2;
+
+		if (_players[index] < _players[parent_index])
+		{
+			swap(_players[parent_index], _players[index]);
+			sift_up(parent_index);
+		}
+
+	}
+
+	T pop_max()
+	{
+		T result = _players[1];
+
+		_players[1] = _players[_size];
+
+		--_size;
+		shift_down(1);
+
+		return result;
+	}
+
+	void shift_down(int index)
+	{
+		int left = 2 * index;
+		int right = 2 * index + 1;
+
+		//нет дочерних узлов
+		if (_size < left)
+			return;
+
+		int index_largest = 0;
+		//right  <= _size проверяет, что есть ьоба дочерних узла
+		if (right <= _size && _players[left] < _players[right])
+			index_largest = left;
+		else
+			index_largest = right;
+
+		if (_players[index_largest] < _players[index] ||
+			_players[index] == _players[index_largest])
+		{
+			swap(_players[index], _players[index_largest]);
+			shift_down(index_largest);
+		}
+	}
+
+private:
+	vector<T> _players;
+	size_t _size;
+};
+
+template <typename T>
+void heap_sort(vector<T> &players)
+{
+	BinaryHeap<T> binaryHeap(players.size());
+
+	for (const auto &player : players)
+		binaryHeap.heap_add(player);
+
+	int i = 0;
+	while (binaryHeap.getSize() != 0)
+	{
+		players[i] = binaryHeap.pop_max();
+		++i;
+	}
+
+	if (players.size() > 1 && players[i - 1] < players[i - 2])
+		swap(players[i - 1], players[i - 2]);
+}
+
+int main()
+{
+	int n = 0;
+	cin >> n;
+	vector<Player> players;
+	//vector<int> players;
+	for (int i = 0; i < n; ++i)
+	{
+		Player player;
+		//int  player;
+		cin >> player;
+		players.push_back(player);
+	}
+
+	heap_sort<Player>(players);
+
+	for (int i = players.size() - 1; i >= 0; --i)
+	{
+		std::cout << players[i]._name << endl;
+
+	}
+
+}
