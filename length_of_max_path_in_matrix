@@ -1,0 +1,75 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int dfs(int i, int j,int n, int m,
+	const vector<vector<int>>& matrixs,
+	vector<vector<int>>& dp
+	)
+{
+	
+	if (dp[i][j] != 0)
+		return dp[i][j];
+	
+	int val = matrixs[i][j];
+
+	int verticalMax = max(i < n - 1 && matrixs[i + 1][j] < val ? dfs(i + 1, j, n, m, matrixs, dp) : 0,
+		i > 0 && matrixs[i - 1][j] < val ? dfs(i - 1, j, n, m, matrixs, dp) : 0);
+
+	int horisontalMax = max(j < m - 1 && matrixs[i][j + 1] < val ? dfs(i, j + 1, n, m,  matrixs, dp) : 0,
+		j > 0 && matrixs[i][j - 1] < val ? dfs(i, j-1,n, m, matrixs, dp) : 0);
+
+	dp[i][j] = 1 + max(verticalMax, horisontalMax);
+	return dp[i][j];
+
+}
+
+
+int getLongestIncreasingPath(int n, int m, const vector<vector<int>>& matrixs) {
+	int ans = 0;
+	vector<vector<int>> dp;
+	dp.resize(n);
+
+	for (int i = 0; i < n; i++) {
+		dp[i].resize(m, 0);
+	}
+
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < m; j++) {
+			ans = max(ans, dfs(i, j, n, m, matrixs, dp));
+		}
+	}
+
+	return ans;
+}
+
+int readInt() {
+	int x;
+	cin >> x;
+	return x;
+}
+
+vector<int> readList(int n) {
+	vector<int> res(n);
+	for (int i = 0; i < n; i++) {
+		cin >> res[i];
+	}
+	return res;
+}
+
+vector<vector<int>> readMatrix(int n, int m) {
+	vector<vector<int>> matrix(n, vector<int>(m));
+	for (int i = 0; i < n; i++) {
+		matrix[i] = readList(m);
+	}
+	return matrix;
+}
+
+int main() {
+	int n, m;
+	cin >> n >> m;
+	vector<vector<int>> matrix = readMatrix(n, m);
+	cout << getLongestIncreasingPath(n, m, matrix);
+}
