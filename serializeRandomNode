@@ -1,0 +1,465 @@
+#include <iostream>
+#include <string>
+#include <stdio.h>
+#include <unordered_map>
+
+using namespace std;
+
+struct ListNode {
+	ListNode* prev = nullptr;
+	ListNode* next = nullptr;
+	ListNode* rand = nullptr;
+	std::string data;
+};
+
+class List {
+public:
+
+//тестовые данные в main сериализуются условно так
+//test data int main look like this
+
+//__6____________________________________
+//	  | is_link | data/index | next_rand
+//	_________________________________
+//0	  |   0     | Mika       | 1
+//	__________________________________
+//-	  |    0    | Uka        | -
+//    ___________________________________
+//1	  |   0     | Lika       | 0
+//___________________________________
+//2   |   0     | Veronika   | 0
+//___________________________________
+//3   | 1       | 0          | -
+//__________________________________
+//4   | 0       | Eva        |  1
+//__________________________________
+//-   | 1       | 1          | -
+//__________________________________
+//5   | 0       | Bella      | 0
+
+
+	void Serialize(FILE* file)
+	{
+		if (!file)
+			return;
+
+		const std::uint32_t ucount = static_cast<std::uint32_t>(count);
+		if (fwrite(reinterpret_cast<const char*>(&ucount), sizeof(ucount), 1, file) != 1)
+			return;
+
+		try
+		{
+			ListNode* currNode = head;
+
+			unordered_map< ListNode*, size_t> visitedNodes;
+			unordered_map< ListNode*, size_t> randNodes;
+
+			size_t index = 0;
+			while (currNode != nullptr)
+			{
+				if (!currNode->rand)
+				{
+					if (randNodes.find(currNode) != randNodes.end())
+						WriteOrdinaryLinkData(file, randNodes.find(currNode)->second);
+					else
+					{
+						WriteOrdinaryData(file, currNode->data);
+
+						uint8_t  is_next_rand = 0;
+						WriteDataSing(file, is_next_rand); 
+
+						visitedNodes[currNode] = index;
+					}
+				}
+				else
+				{
+					WriteOrdinaryData(file, currNode->data);
+					visitedNodes[currNode] = index;
+
+					uint8_t  is_next_rand = 1;
+					WriteDataSing(file, is_next_rand);
+
+					if (visitedNodes.find(currNode->rand) != visitedNodes.end())
+						WriteRandLinkedData(file, visitedNodes.find(currNode->rand)->second);
+					else
+					{
+						WriteRandData(file, currNode->rand->data);
+						randNodes[currNode->rand] = index;
+					}
+						
+				}
+			
+				currNode = currNode->next;
+				++index;
+			}
+		}
+		catch (std::runtime_error& e)
+		{
+			cout << e.what();
+		}
+	}
+
+
+	void Deserialize(FILE* file)
+	{
+		if (!file)
+			return;
+
+		std::fseek(file, 0, SEEK_SET);
+
+		size_t usize_count = 0;
+		if (fread(&usize_count, sizeof(size_t), 1, file) != 1)
+			return;
+
+		try
+		{
+			unordered_map<size_t, ListNode*> randNodes;
+			unordered_map<size_t, ListNode*> createdNodes;
+
+			for (size_t i = 0; i < usize_count; ++i)
+			{
+				uint8_t is_link = 0;
+				ReadDataSing(file, is_link);
+
+				if (is_link == 1)
+					ReadLinkedNode(file, randNodes);
+				else
+				{
+					ReadNode(file, createdNodes, i);				
+
+					uint8_t is_next_rand = 0;
+					ReadDataSing(file, is_next_rand);
+					if(is_next_rand == 0)
+						continue;
+
+					uint8_t is_link_rand = 0;
+					ReadDataSing(file, is_link_rand);
+
+					if (is_link_rand == 0)
+						ReadRandNode(file, randNodes, i);
+					else
+						ReadRandLinkNode(file, createdNodes);
+				}			
+			}
+		}
+		catch (std::runtime_error& e)
+		{
+			Rollback();
+		}
+	}
+
+	void PushBack(const std::string &value)
+	{
+		if (head == nullptr)
+		{
+			head = new ListNode{ nullptr, nullptr, nullptr, value };
+			++count;
+			return;
+		}
+
+		if (count == 1)
+		{
+			tail = new ListNode{ head, nullptr, nullptr, value };
+			head->next = tail;
+		}
+		else
+		{
+			ListNode* new_tail = new ListNode{ tail, nullptr, nullptr, value };
+			tail->next = new_tail;
+			tail = new_tail;
+		}
+		++count;
+	}
+
+	void LinkRand4Test(size_t pos_src, size_t pos_dst)
+	{
+		if ((pos_src == pos_dst) ||
+			(pos_src >= count) ||
+			(pos_dst >= count))
+			return;
+
+
+		size_t index = 0;
+		ListNode* currNode = head;
+
+		ListNode* nodeSrc = nullptr;
+		ListNode* nodeDst = nullptr;
+
+		while (currNode != nullptr)
+		{
+			if (pos_src == index)
+				nodeSrc = currNode;
+
+			if (pos_dst == index)
+				nodeDst = currNode;
+
+			if (nodeDst && nodeSrc)
+				break;
+
+			currNode = currNode->next;
+			++index;
+		}
+
+		nodeSrc->rand = nodeDst;
+	}
+
+	void Print()
+	{
+		ListNode* currNode = head;
+
+		while (currNode != nullptr)
+		{
+			cout << "_data:" << currNode->data;
+
+			if(currNode->rand)
+				cout << " _rand:" << currNode->rand->data;
+
+			cout << endl;
+
+			currNode = currNode->next;
+		}
+	}
+
+	void PrintReverse()
+	{
+		ListNode* currNode = tail;
+
+		while (currNode != nullptr)
+		{
+			cout << "_data:" << currNode->data;
+
+			if (currNode->rand)
+				cout << " _rand:" << currNode->rand->data;
+
+			cout << endl;
+			currNode = currNode->prev;
+		}
+	}
+
+private:
+
+	void WriteRandLinkedData(std::FILE* file, size_t index)
+	{
+		uint8_t is_linked = 1;
+		WriteDataSing(file, is_linked);
+		WriteDataLink(file, index);
+	}
+
+	void WriteRandData(std::FILE* file, const string& data)
+	{
+		uint8_t is_linked = 0;
+		WriteDataSing(file, is_linked);
+		WriteData(file, data);
+	}
+
+	void WriteOrdinaryData(std::FILE* file, const string& data)
+	{
+		uint8_t is_linked = 0;
+		WriteDataSing(file, is_linked);
+		WriteData(file, data);
+	}
+
+	void WriteOrdinaryLinkData(std::FILE* file, size_t index)
+	{
+		uint8_t is_linked = 1;
+		WriteDataSing(file, is_linked);
+		WriteDataLink(file, index);
+	}
+
+	void WriteDataSing(std::FILE* file, uint8_t data_sign)
+	{
+		if (!file)
+			return;
+
+		if (fwrite(reinterpret_cast<const char*>(&data_sign), sizeof(uint8_t), 1, file) != 1)
+			throw std::runtime_error("coudn't write data sign of node");
+	}
+
+	void WriteDataLink(std::FILE* file, size_t index)
+	{
+		if (!file)
+			return;
+
+		if (fwrite(reinterpret_cast<const char*>(&index), sizeof(size_t), 1, file) != 1)
+			throw std::runtime_error("coudn't write data sign of node");
+	}
+
+	void WriteData(std::FILE* file, const std::string &data)
+	{
+		if (!file)
+			return;
+
+		size_t usize_current = data.size();
+
+		bool res = std::fwrite(reinterpret_cast<char*>(&usize_current), sizeof(usize_current), 1, file) == 1;
+		if (res)
+			res = std::fwrite(data.c_str(), usize_current, 1, file) == 1;
+
+		if (!res)
+			throw std::runtime_error("coudn't write data of node");
+	}
+
+	void ReadLinkedNode(std::FILE* file, const unordered_map<size_t, ListNode*>& randNodes)
+	{
+		size_t linked_index = 0;
+		ReadDataLink(file, linked_index);
+		if (randNodes.find(linked_index) == randNodes.end())
+			throw std::runtime_error("doesn't correct file");
+	
+		auto newTail = randNodes.find(linked_index)->second;
+		newTail->prev = tail;
+
+		tail->next = newTail;
+		tail = newTail;
+
+		++count;
+		
+	}
+
+	void ReadNode(std::FILE* file,  unordered_map<size_t, ListNode*>& createdNodes, size_t index)
+	{
+		string data;
+		ReadData(file, data);
+		PushBack(data);
+		createdNodes[index] = index == 0 ? head: tail;
+	}
+
+	void ReadRandNode(std::FILE* file, unordered_map<size_t, ListNode*>& randNodes, size_t index)
+	{
+		string rand_data;
+		ReadData(file, rand_data);
+
+		if (tail)
+		{
+			tail->rand = new ListNode{ nullptr, nullptr, nullptr, rand_data };
+			randNodes[index] = tail->rand;
+		}
+		else
+		{
+			head->rand = new ListNode{ nullptr, nullptr, nullptr, rand_data };
+			randNodes[index] = head->rand;
+		}
+	}
+
+	void ReadRandLinkNode(std::FILE* file, const unordered_map<size_t, ListNode*>& createdNodes)
+	{
+		size_t linked_index = 0;
+		ReadDataLink(file, linked_index);
+		if (createdNodes.find(linked_index) == createdNodes.end())
+			throw std::runtime_error("doesn't correct file");
+		else
+			tail->rand = createdNodes.find(linked_index)->second;
+	}
+
+	void ReadDataSing(std::FILE* file, uint8_t& data_sing)
+	{
+		if (!file)
+			return;
+
+		if(fread(&data_sing, sizeof(uint8_t), 1, file) != 1)
+			throw std::runtime_error("coudn't  read data singn of node");
+	}
+
+	void ReadDataLink(std::FILE* file, size_t& index)
+	{
+		if (!file)
+			return;
+
+		if (fread(&index, sizeof(size_t), 1, file) != 1)
+			throw std::runtime_error("coudn't  read data link of node");
+	}
+
+
+	void ReadData(std::FILE* file, std::string &data)
+	{
+		if (!file)
+			return;
+
+		size_t usize_current = 0;
+		bool res = fread(&usize_current, sizeof(size_t), 1, file) == 1;
+
+		if (res)
+		{
+			data.clear();
+			data.resize(usize_current);
+			res = std::fread(&data[0], usize_current, 1, file) == 1;
+		}
+
+		if (!res)
+			throw std::runtime_error("coudn't  read of node");
+	}
+
+	void Rollback()
+	{
+		while (tail != nullptr)
+		{
+			auto newTail = tail->prev;
+
+			if (tail == head)
+			{
+				delete head;
+				head = nullptr;
+				tail = nullptr;
+				--count;
+			}
+			else
+			{
+
+				delete tail;
+				tail = newTail;
+				if (tail)
+					tail->next = nullptr;
+
+				--count;
+			}
+		}
+	}
+
+
+
+private:
+	ListNode* head = nullptr;
+	ListNode* tail = nullptr;
+	int count = 0;
+};
+
+
+int main()
+{
+	//List fekla;
+	//fekla.PushBack("Mika");
+	//fekla.PushBack("Lika");
+	//fekla.PushBack("Veronika");
+	//fekla.PushBack("Uka");
+	//fekla.PushBack("Eva");
+	//fekla.PushBack("Bella");
+
+	//fekla.LinkRand4Test(0, 3);
+	//fekla.LinkRand4Test(4, 1);
+
+	//fekla.Print();
+	//cout << "----Reverse" << endl;
+	//fekla.PrintReverse();
+
+	//FILE * file1 = fopen("file_bin9", "wb");
+	//if (file1 == NULL) {
+	//	printf("Error: file out.bin cannot be opened\n");
+	//	exit(1);
+	//}
+	//fekla.Serialize(file1);
+	//fclose(file1);
+
+	//List rita;
+	//cout << "----After Deserialize" << endl;
+	//FILE * file2 = fopen("file_bin9", "rb");
+	//if (file2 == NULL) {
+	//	printf("Error: file out.bin cannot be opened\n");
+	//	exit(1);
+	//}
+	//rita.Deserialize(file2);
+	//fclose(file2);	
+	//rita.Print();
+	//cout << "----Reverse" << endl;
+	//rita.PrintReverse();
+
+}
