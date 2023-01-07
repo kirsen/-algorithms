@@ -1,0 +1,46 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+//Используем два указателя
+//i - индекс текущего символа
+//last_index - последнего не повторяющегося
+
+//last_index = 0
+//| _______i = 1
+//|| 
+//AAA BBB AAA
+//
+//A == A =>
+//
+//
+//last_index = 0
+//| _______i = 2
+//| |
+//AAA BBB AAA
+//
+//|  _______i = 3
+//|  |
+//AAA BBB AAA    = >
+//
+//-----
+//A B A
+
+
+void RemoveDups(char* str)
+{
+	size_t lenght = strlen(str);
+	size_t last_index = 0;
+	for (size_t i = 1; i < lenght; ++i)
+	{
+		if (str[last_index] != str[i])
+			str[++last_index] = str[i];
+	}
+	str[++last_index] = '\0';
+}
+
+int main()
+{
+	char str[] = "AAA BBB AAA";
+	RemoveDups(str);
+}
