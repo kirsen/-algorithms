@@ -1,0 +1,143 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+
+//Обычный перевод десятичного в двоичное:
+//делим на 2, а остатки записываем в обратном порядке
+string uint2binView(unsigned long long uint_value)
+{
+	string binary_view;
+	while (uint_value != 0)
+	{
+		binary_view = uint_value % 2 ? "1" + binary_view : "0" + binary_view;
+		uint_value /= 2;
+	}
+	return binary_view;
+}
+
+//Переводим дробную часть, так как она меньше 1
+//и находится в области отрицательных степеней двойки,
+//раскладываем на суммы множителей по убыванию степеней
+//например 0.125 = 0*2^(-1) + 0*2^(-2) + 1*2^(-3) 
+//0.125*2 
+//0.250*2
+//0.5*2
+template <typename T>
+string fractional2binView(T fractional)
+{
+	string binary_view;
+	while (fractional > 0.0)
+	{
+		fractional *= 2;
+		if (fractional < 1)
+			binary_view += "0";
+		else
+		{
+			binary_view += "1";
+			fractional--;
+		}
+	}
+	return binary_view;
+}
+
+void normalize_postfix(string& binary_view, unsigned short size)
+{
+	if (binary_view.size() >= size)
+		binary_view = string(binary_view.begin(), binary_view.end() - (binary_view.size() - size));
+	else
+	{
+		while (binary_view.size() < size)
+			binary_view += "0";
+	}
+}
+
+void normalize_preffix(string& binary_view, unsigned short size)
+{
+	while (binary_view.size() < size)
+		binary_view = "0" + binary_view;
+}
+
+//exponent - offset = максимальной степени двойки целой части - 
+string get_exponent_view(short offset, size_t max_bin_pow, unsigned short normalize_size)
+{
+	string exponent_bin_view = uint2binView(offset + max_bin_pow);
+	normalize_preffix(exponent_bin_view, normalize_size);
+	return exponent_bin_view;
+}
+
+//exponent - offset = максимальной степени двойки целой части - 
+string get_mantissa_view(const string &int_part_bin_view, string fractional_part_bin_view,
+	unsigned short normalize_size)
+{
+	string intWithFractional(int_part_bin_view + fractional_part_bin_view);
+	string matissa_bin_view(intWithFractional.begin() + 1, intWithFractional.end());
+
+	normalize_postfix(matissa_bin_view, normalize_size);
+	return matissa_bin_view;
+}
+
+//(−1)^sign × mantissa × 2^exponent
+//sign - 1bit | exponent - 8bit | mantissa - 23 bit (fraction part)
+//
+void printFloatBinView(float number)
+{
+	string sign = number < 0 ? "1" : "0";
+	unsigned long long uint_value = static_cast<unsigned long long>(abs(number));
+	float mod_part = abs(number) - uint_value;
+
+	string int_part_bin_view = uint2binView(uint_value);
+	string fractional_part_bin_view = fractional2binView<float>(mod_part);
+
+	string exponent_view = get_exponent_view(127, int_part_bin_view.size() - 1, 8);
+	string mantissa_view = get_mantissa_view(int_part_bin_view, fractional_part_bin_view, 23);
+
+	string binary_string_view = sign + exponent_view + mantissa_view;
+
+	unsigned short byte_size = sizeof(float) * 8;
+	if (binary_string_view.size() <= byte_size)
+		normalize_preffix(binary_string_view, byte_size);
+	else
+		normalize_preffix(binary_string_view, 1);
+
+	cout << binary_string_view;
+}
+
+//(−1)^sign × mantissa × 2^exponent
+//sign - 1bit | exponent - 11bit | mantissa - 52 bit (fraction part)
+//
+void printDoubleBinView(double number)
+{
+	string sign = number < 0 ? "1" : "0";
+	unsigned long long uint_value = static_cast<unsigned long long>(abs(number));
+	double mod_part = abs(number) - uint_value;
+
+	string int_part_bin_view = uint2binView(uint_value);
+	string fractional_part_bin_view = fractional2binView<double>(mod_part);
+
+	string exponent_view = get_exponent_view(1023, int_part_bin_view.size() - 1, 11);
+	string mantissa_view = get_mantissa_view(int_part_bin_view, fractional_part_bin_view, 52);
+
+
+	string binary_string_view = sign + exponent_view + mantissa_view;
+
+	unsigned short byte_size = sizeof(double) * 8;
+	if (binary_string_view.size() <= byte_size)
+		normalize_preffix(binary_string_view, byte_size);
+	else
+		normalize_preffix(binary_string_view, 1);
+
+	cout << binary_string_view;
+}
+
+int main()
+{
+	//float first = 5.125;
+	//printFloatBinView(first);
+
+	//cout << endl;
+
+	//double second = 956.1007;
+	//printDoubleBinView(second);
+
+}
