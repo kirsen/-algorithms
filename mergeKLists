@@ -11,37 +11,35 @@ using namespace std;
 	
 };
 
- class comp
- {
- public:
-	 bool operator()(const ListNode* first, const ListNode* second)
+
+ ListNode* mergeKLists(vector<ListNode*>& lists) {
+	
+	
+	 priority_queue<int,deque<int, allocator<int> >, greater<int>> priority_queue;
+	 for (auto i = 0; i < lists.size(); ++i)
 	 {
-		 return first->val > second->val;
+		 ListNode* curr = lists.at(i);
+		 while (curr)
+		 {
+			 priority_queue.push(curr->val);
+			 curr = curr->next;
+		 }
+
 	 }
- };
-ListNode* mergeKLists(vector<ListNode*>& lists) {
-	ListNode* head = new ListNode(0);
-	ListNode* temp = head;
 
+	 ListNode* res = nullptr;
+	 ListNode* prev = priority_queue.empty() ? nullptr: new ListNode(priority_queue.top());
+	 if (prev)
+	 {
+		 priority_queue.pop();
+		 res = prev;
+	 }
 
-	priority_queue<ListNode*, vector<ListNode*>, comp> pQ;
-	for (int i = 0; i < lists.size(); ++i)
-	{
-		if (lists[i])
-			pQ.push(lists[i]);
-	}
-
-
-	while (!pQ.empty())
-	{
-		auto  min = pQ.top();
-		pQ.pop();
-
-		temp->next = min;
-		temp = temp->next;
-
-		if(min->next)
-			pQ.push(min->next);
-	}
-	return head->next;
-}
+	 while (!priority_queue.empty())
+	 {
+		 prev->next = new ListNode(priority_queue.top());
+		 prev = prev->next;
+		 priority_queue.pop();
+	 }
+	 return res;
+ }
